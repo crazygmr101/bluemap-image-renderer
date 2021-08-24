@@ -16,13 +16,12 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 """
 import asyncio
 import itertools
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import aiohttp
 from PIL import ImageDraw, Image
 
-from lib.models import BufferGeometry
-from lib.url_build import build_bluemap_tile_url
+from lib.utils import build_bluemap_tile_url, Color, Point, parse_geo
 
 
 async def get_json(root: str, x: int, z: int, session: aiohttp.ClientSession):
@@ -46,12 +45,12 @@ async def main(base_url: str, padding_amount: int, location: Tuple[int, int], ou
     jsons = await asyncio.gather(*(get_json(base_url, x, z, session) for x, z in tiles))
     await session.close()
 
-    buffers: List[BufferGeometry] = []
+    buffers: List[Dict[Point, Color]] = []
 
     for i in range(len(tiles)):
         x, z = tiles[i]
         print(f"\rRendering tile {i}/{len(tiles)}", end="")
-        buffers.append(BufferGeometry.from_json(jsons[i]))
+        buffers.append(parse_geo(jsons[i]))
 
     print()
 
@@ -69,7 +68,7 @@ async def main(base_url: str, padding_amount: int, location: Tuple[int, int], ou
         correction_x = x * 50
         correction_y = z * 50
 
-        for point, color in buffers[i].colors.items():
+        for point, color in buffers[i].items():
             new_x = point.x + correction_x - min_x * 50
             new_z = point.z + correction_y - min_z * 50
             if new_z < 0 or new_x < 0:
